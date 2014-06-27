@@ -20,13 +20,9 @@ typedef struct _proc_inst_t
     
     // You may introduce other fields as needed
 
-    // These are used to keep track of the cycle in which the instruction
-    // first got into that stage. It's used for the output
-    int fetch_cycle;
-    int dispatch_cycle;
-    int schedule_cycle;
-    int execute_cycle;
-    int state_cycle;
+    // The current stage of the instruction
+    // 1 = fetch, 2 = dispatch, 3 = schedule, 4 = execture, 5 = update
+    int cur_stage;
 
     // Used when we need to tag a register
     int instruction_num;
@@ -67,5 +63,37 @@ typedef struct _reg_file_t {
     int tag;
     int value;
 } reg_file_t;
+
+// Struct to show schedule q entries
+// These entries will be held in a global array/vector
+typedef struct _sched_q_entry {
+    proc_inst_t inst; // Hold the instruction
+    int dest_reg;
+    int dest_tag;
+    int src1_ready;
+    int src1_tag;
+    int src2_ready;
+    int src2_tag;
+    int fireable; // The instruction is ready to fire
+} sched_q_entry;
+
+// The dispatch queue will just be a queue (duh!)
+// Each entry will just be an instruction proc_inst_t
+//
+// First problem, should this be global or not
+// Second problem, need to use push/pop
+
+// In order to keep track of the cycle that each instruction
+// enters each stage, I am going to have a two dimensional array
+// There will be a row for every instruction and a column for 
+// every stage (Fetch, Dispatch, Schedule, Execute, Update)
+//
+// First problem, figure out how many instructions there are
+
+// I want to have a structure array/vector that will model the CDBs
+// There will be one element for each CDB and when an instruction 
+// finishes executing, it will be put into a CDB slot. The schedule
+// state will check each CDB for instruction information and then it
+// will remove it from the CDB slot. 
 
 #endif /* PROCSIM_HPP */
