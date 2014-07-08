@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <unistd.h>
+#include <iostream>
 #include "procsim.hpp"
 
 FILE* inFile = stdin;
@@ -38,6 +39,7 @@ bool read_instruction(proc_inst_t* p_inst)
     
     ret = fscanf(inFile, "%x %d %d %d %d\n", &p_inst->instruction_address,
                  &p_inst->op_code, &p_inst->dest_reg, &p_inst->src_reg[0], &p_inst->src_reg[1]); 
+
     if (ret != 5) {
         return false;
     }
