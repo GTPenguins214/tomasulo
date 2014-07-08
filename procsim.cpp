@@ -9,6 +9,9 @@ using namespace std;
 #define DEBUG2 1 // Currently used debugging options
 #define DEBUG3 1 // Level 3 debugging, future debugging options
 
+#define CYCLE_END 30
+#define INSTR_END 100
+
 proc_info_t info; // Structure that holds all the infomation
 vector <proc_inst_t> instructions; // Instruction vector, this should stay in order
 vector <vector<fu_t> > function_units; // Two-Dimensional FU data structure
@@ -92,9 +95,6 @@ void setup_proc(uint64_t d, uint64_t k0, uint64_t k1, uint64_t k2, uint64_t f, u
 			}
 		}
 	}
-
-	// Print the headings
-	printf("INST\tFETCH\tDISP\tSCHEDU\t EXEC\tSTATE\n");
 }
 
 /**
@@ -112,6 +112,9 @@ void run_proc(proc_stats_t* p_stats) {
 
 	// Go through until we hit the end (or an error)
 	while (!end) {
+
+		if (DEBUG2)
+			std::cout << "---------------- Cycle " << cycle_count << "-------------\n";
 
 		// Figure out how many instructions we should fetch
 		if (info.disp_q_size - info.disp_count > info.fetch_rate)
@@ -166,6 +169,18 @@ void run_proc(proc_stats_t* p_stats) {
 						  << instructions[i].src_ready[1] << ' '
 						  << instructions[i].fireable << " \n";
 			}
+
+			std::cout << '\n';
+
+			// for (int i = 0; i < 7; i++) {
+			// 	std::cout << "Register " << i << ": "
+			// 			  << reg_file[i].ready << ' '
+			// 			  << reg_file[i].tag << '\n';
+
+			// }
+
+			// std::cout << '\n';
+
 			for (int i = 0; i < 3; i++) {
 				for (int j = 0; j < info.fu[i]; j++) {
 					std::cout << "Function Unit " << i << ':' << j << '\n';
@@ -178,7 +193,7 @@ void run_proc(proc_stats_t* p_stats) {
 		
 		cycle_count++;
 
-		if (cycle_count == 14)
+		if (cycle_count == CYCLE_END)
 			end = true;
 
 	}
@@ -194,7 +209,7 @@ void run_proc(proc_stats_t* p_stats) {
  */
 void complete_proc(proc_stats_t *p_stats) {
 	// Print the headings
-	printf("INST\tFETCH\tDISP\tSCHEDU\t EXEC\tSTATE\n");
+	printf("INST\tFETCH\tDISP\tSCHED\tEXEC\tSTATE\n");
 
 	for (int i = 0; i < (int) instructions.size(); i++) {
 		std::cout << instructions[i].instruction_num << '\t'
@@ -208,12 +223,12 @@ void complete_proc(proc_stats_t *p_stats) {
 
 
 int fetch_proc(int cycle, int num_to_fetch) {
-	if (DEBUG1) {
-		std::cout << "Fetching " << num_to_fetch << " instructions.\n";
+	if (DEBUG2) {
+		std::cout << "Fetching/Dispatching " << num_to_fetch << " instructions.\n";
 	}
 
 	if (DEBUG3) {
-		if (instructions.size() >= 24)
+		if (instructions.size() >= INSTR_END)
 			return 1;
 	}
 
@@ -255,6 +270,10 @@ int fetch_proc(int cycle, int num_to_fetch) {
 			// Add it to the instructions list
 			instructions.push_back(temp_instr);
 
+			if (DEBUG2) {
+				std::cout << "Fetched/Dispatched Instruction " << temp_instr.instruction_num << '\n';
+			}
+
 			// Increment the dispatch q
 			info.disp_count++;
 		}
@@ -266,12 +285,8 @@ int fetch_proc(int cycle, int num_to_fetch) {
 		}
 	}
 
-	if (DEBUG1) {
-		for (int i = 0; i < (int) instructions.size(); i++) {
-			std::cout << "Instruction Number " << instructions[i].instruction_num;
-			std::cout << " at index " << i << '\n';
-		}
-	}
+	if (DEBUG2)
+		std::cout << '\n';
 
 	return 1;
 
@@ -283,7 +298,10 @@ int dispatch_proc(int cycle) {
 	for (int i = 0; i < 3; i++) {
 		// How many should we schedule
 		int to_schedule = info.sched_size[i] - info.sched_count[i];
-		std::cout << "Trying to Dispatch " << to_schedule << " instructions for Queue " << i << '\n';
+
+		if (DEBUG2) {
+			std::cout << "Trying to Schedule " << to_schedule << " instructions for Queue " << i << '\n';
+		}
 
 		// For the number to schedule, look through the dispatch queue and find
 		// an instruction to schedule
@@ -296,16 +314,8 @@ int dispatch_proc(int cycle) {
 				if (instructions[k].cur_stage == DISPATCH) {
 					if (instructions[k].sched_q_index == i) {
 
-						std::cout << "Instruction " << k+1 << " matches\n";
-
-						// Change the tag in the register file
-						// If the destination reg == -1 then do nothing
-						if (instructions[k].dest_reg != -1) {
-							// Change the Tag
-							reg_file[instructions[k].dest_reg].tag = instructions[k].instruction_num;
-							reg_file[instructions[k].dest_reg].ready = false;
-						}
-
+						if (DEBUG2)
+							std::cout << "Scheduled Instruction " << k+1 << '\n';
 
 						// Get the source tags and whether they are ready
 						for (int l = 0; l < 2; l++) {
@@ -319,6 +329,34 @@ int dispatch_proc(int cycle) {
 							}
 							else
 								instructions[k].src_ready[l] = true;
+						}
+
+						// Change the tag in the register file
+						// If the destination reg == -1 then do nothing
+						if (instructions[k].dest_reg != -1) {
+							// Change the Tag
+							reg_file[instructions[k].dest_reg].tag = instructions[k].instruction_num;
+							reg_file[instructions[k].dest_reg].ready = false;
+
+							if (DEBUG2) {
+								for (int i = 0; i < 7; i++) {
+									std::cout << "Register " << i << ": "
+							  				  << reg_file[i].ready << ' '
+							                  << reg_file[i].tag << '\n';
+								}
+							}
+						}
+
+						if (DEBUG2) {
+							// Print the schedule q entry
+							std::cout << "Dest: " << instructions[k].dest_reg << ' '
+									  << "DTag: " << instructions[k].instruction_num << '\n';
+							std::cout << "Src0: " << instructions[k].src_reg[0] << ' '
+									  << "Src0_ReadY: " << instructions[k].src_ready[0] << ' '
+									  << "Src0_Tag: " << instructions[k].src_tag[0] << '\n';
+							std::cout << "Src1: " << instructions[k].src_reg[1] << ' '
+									  << "Src1_ReadY: " << instructions[k].src_ready[1] << ' '
+									  << "Src1_Tag: " << instructions[k].src_tag[1] << "\n\n";
 						}
 
 						if (instructions[k].src_ready[0] && instructions[k].src_ready[1])
@@ -343,6 +381,9 @@ int dispatch_proc(int cycle) {
 		}
 	}
 
+	if (DEBUG2)
+		std::cout << '\n';
+
 	return 1;
 }
 
@@ -360,18 +401,22 @@ int schedule_proc(int cycle) {
 					if (instructions[k].cur_stage == SCHEDULE) {
 						// If it is for this schedule queue
 						if (instructions[k].sched_q_index == i) {
+							if (instructions[k].fireable) {
+								if (DEBUG2) {
+									std::cout << "Firing Instruction " << k+1 << '\n';
+								}
 
-							// Put it into the FU
-							function_units[i][j].stage[0] = instructions[k].instruction_num;
+								// Put it into the FU
+								function_units[i][j].stage[0] = instructions[k].instruction_num;
 
-							// Set the current stage of the instruction
-							instructions[k].cur_stage = EXEC1;
+								// Set the current stage of the instruction
+								instructions[k].cur_stage = EXEC1;
 
-							// Record the cycle it went into exectution
-							instructions[k].cycle[3] = cycle+1;
+								// Record the cycle it went into exectution
+								instructions[k].cycle[3] = cycle+1;
 
-							break;
-
+								break;
+							}
 						}
 					}
 				}
@@ -379,17 +424,47 @@ int schedule_proc(int cycle) {
 		}
 	}
 
+	// Go through and put instructions into CDBs
+	// I am doing this here because of timing issues
+	// This doesn't update the register file
+	int index = 0;
+
+	// Go through the instruction queue and look for instructions that are ready for the CDB
+	while (info.cdb_count < info.num_cdb) {
+
+		if (index >= (int) instructions.size()) {
+			break;
+		}
+
+		if (instructions[index].cdb == READY) {
+			// Change the state of the CDB
+			instructions[index].cdb = IN_CDB;
+
+			if (DEBUG2)
+				std::cout << "Broadcasting Instruction " << index+1 << '\n';
+
+			info.cdb_count++;
+		}
+
+		index++;
+	}
+
 	// Run through each instruction and check if this instruction has the CDB
 	for (int i = 0; i < (int) instructions.size(); i++) {
 		if (instructions[i].cdb == IN_CDB) {
 
-			std::cout << "Instruction " << i+1 << " is broadcasting\n";
+			if (DEBUG2)
+				std::cout << "Gettting Broadcast Instruction " << i+1 << '\n';
 
 			// It has the CDB and we need to go through each instruction and 
 			// update any instructions that use this register. 
 			for (int j = 0; j < (int) instructions.size(); j++) {
 				// Check the first source register
 				if (instructions[j].src_tag[0] == instructions[i].instruction_num) {
+
+					if (DEBUG2)
+						std::cout << "Setting Instruction " << j+1 << " Source 1 Reg to Ready\n";
+
 					// Set the register to ready
 					instructions[j].src_ready[0] = true;
 
@@ -399,24 +474,27 @@ int schedule_proc(int cycle) {
 
 				// Check the second source register
 				if (instructions[j].src_tag[1] == instructions[i].instruction_num) {
+
+					if (DEBUG2)
+						std::cout << "Setting Instruction " << j+1 << " Source 1 Reg to Ready\n";
+
 					// Set the register to ready
 					instructions[j].src_ready[1] = true;
 
 					// Unset the tag
 					instructions[j].src_tag[1] = -1;
 				}
+
+				// Set fireable, if possible
+				if (instructions[j].src_ready[0] && instructions[j].src_ready[1])
+							instructions[j].fireable = true;
+
 			}
-
-			// Instruction is out of the CDB now
-			instructions[i].cdb = NOT_READY;
-
-			// Instructions are officially finished
-			instructions[i].cur_stage = FINISHED;
-
-			// Decrement the CDB counter
-			info.cdb_count--;
 		}
 	}
+
+	if (DEBUG2)
+		std::cout << '\n';
 
 	return 1;
 }
@@ -434,7 +512,8 @@ int execute_proc(int cycle) {
 
 					int instr_num = function_units[i][j].stage[0]-1;
 
-					std::cout << "Instruction " << instr_num+1 << " is finished executing\n";
+					if (DEBUG2)
+						std::cout << "Finished executing Instruction " << instr_num+1 << '\n';
 
 					// Remove them from the schedule q
 					info.sched_count[i]--;
@@ -460,7 +539,8 @@ int execute_proc(int cycle) {
 					// Get the index
 					int instr_num = function_units[i][j].stage[1] - 1;
 
-					std::cout << "Instruction " << instr_num+1 << " is finished executing\n";
+					if (DEBUG2)
+						std::cout << "Finished executing Instruction " << instr_num+1 << '\n';
 
 					// Remove them from the schedule q
 					info.sched_count[i]--;
@@ -487,6 +567,10 @@ int execute_proc(int cycle) {
 					// Advance the instruction
 					function_units[i][j].stage[1] = instr_num+1;
 
+					if (DEBUG2) {
+						std::cout << "Advancing Instruction " << instr_num+1 << '\n';
+					}
+
 					// Change the state of the function
 					instructions[instr_num].cur_stage = EXEC2;
 
@@ -503,7 +587,8 @@ int execute_proc(int cycle) {
 					// Get the index
 					int instr_num = function_units[i][j].stage[2] - 1;
 
-					std::cout << "Instruction " << instr_num+1 << " is finished executing\n";
+					if (DEBUG2)
+						std::cout << "Finished executing Instruction " << instr_num+1 << '\n';
 
 					// Remove them from the schedule q
 					info.sched_count[i]--;
@@ -528,6 +613,10 @@ int execute_proc(int cycle) {
 					// Advance the instruction
 					function_units[i][j].stage[2] = instr_num + 1;
 
+					if (DEBUG2) {
+						std::cout << "Advancing Instruction " << instr_num+1 << '\n';
+					}
+
 					// Change the state of the function
 					instructions[instr_num].cur_stage = EXEC3;
 
@@ -543,6 +632,10 @@ int execute_proc(int cycle) {
 					// Advance the instruction
 					function_units[i][j].stage[1] = instr_num + 1;
 
+					if (DEBUG2) {
+						std::cout << "Advancing Instruction " << instr_num+1 << '\n';
+					}
+
 					// Change the state of the function
 					instructions[instr_num].cur_stage = EXEC2;
 
@@ -553,33 +646,41 @@ int execute_proc(int cycle) {
 		}
 	}
 
+	if (DEBUG2)
+		std::cout << '\n';
+
 	return 1;
 }
 
 int update_proc(int cycle) {
-	int index = 0;
 
-	// Go through the instruction queue and look for instructions that are ready for the CDB
-	while (info.cdb_count < info.num_cdb) {
+	// Go through the instruction queue and look for instructions that have the CDB
+	for (int i = 0; i < (int) instructions.size(); i++) {
+		// If it has the CDB
+		if (instructions[i].cdb == IN_CDB) {
+			//Update the register file
+			if (reg_file[instructions[i].dest_reg].tag == instructions[i].instruction_num)
+				reg_file[instructions[i].dest_reg].ready = true;
 
-		if (index >= (int) instructions.size()) {
-			break;
+			if (DEBUG2) {
+				std::cout << "Updateing Register File from Instruction " << i+1 << '\n';
+				std::cout << "Finished Instruction " << i+1 << '\n';
+			}
+
+			// Now it doesn't need the CDB anymore
+			instructions[i].cdb = NOT_READY;
+
+			// Now the instruction is finished
+			instructions[i].cur_stage = FINISHED;
+
+			// Decrement the CDB counter
+			info.cdb_count--;
 		}
 
-		if (instructions[index].cdb == READY) {
-			// Change the state of the CDB
-			instructions[index].cdb = IN_CDB;
-
-			// Update the register file
-			// Index into the register file
-			if (reg_file[instructions[index].dest_reg].tag == instructions[index].instruction_num)
-				reg_file[instructions[index].dest_reg].ready = true;
-
-			info.cdb_count++;
-		}
-
-		index++;
 	}
+
+	if (DEBUG2)
+		std::cout << '\n';
 
 	return 1;
 }
