@@ -126,6 +126,14 @@ void run_proc(proc_stats_t* p_stats) {
 			std::cout << "Fetch " << num_to_fetch << " instructions...\n";
 		}
 
+		// Figure out how many instructions we can put in each
+		// schedule queue.
+		int to_schedule[3];
+
+		for (int i = 0; i < 3; i++) {
+			to_schedule[i] = info.sched_size[i] - info.sched_count[i];
+		}
+
 		// Do state update
 		if (update_proc(cycle_count) == -1)
 			end = true;
@@ -139,7 +147,7 @@ void run_proc(proc_stats_t* p_stats) {
 			end = true;
 
 		// Do Dispatch
-		if (dispatch_proc(cycle_count) == -1)
+		if (dispatch_proc(cycle_count, to_schedule) == -1)
 			end = true;
 
 		// Do fetch
@@ -292,12 +300,12 @@ int fetch_proc(int cycle, int num_to_fetch) {
 
 }
 
-int dispatch_proc(int cycle) {
+int dispatch_proc(int cycle, int *num_to_schedule) {
 
 	// Check each schedule queue and find empty slots
 	for (int i = 0; i < 3; i++) {
 		// How many should we schedule
-		int to_schedule = info.sched_size[i] - info.sched_count[i];
+		int to_schedule = num_to_schedule[i];
 
 		if (DEBUG2) {
 			std::cout << "Trying to Schedule " << to_schedule << " instructions for Queue " << i << '\n';

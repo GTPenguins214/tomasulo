@@ -73,7 +73,7 @@ void run_proc(proc_stats_t* p_stats);
 void complete_proc(proc_stats_t* p_stats);
 
 int fetch_proc(int cycle, int num_to_fetch);
-int dispatch_proc(int cycle);
+int dispatch_proc(int cycle, int *num_to_schedule);
 int schedule_proc(int cycle);
 int execute_proc(int cycle);
 int update_proc(int cycle);
