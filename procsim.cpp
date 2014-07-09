@@ -87,7 +87,7 @@ void setup_proc(uint64_t d, uint64_t k0, uint64_t k1, uint64_t k2, uint64_t f, u
 
 		if (DEBUG1) {
 			for (int j = 0; j < info.fu[i]; j++) {
-			
+
 				std::cout << "Function Unit Type " << i << " Number " << j << '\n';
 				std::cout << function_units[i][j].stage[0] << ' '
 					 	  << function_units[i][j].stage[1] << ' '
@@ -198,7 +198,7 @@ void run_proc(proc_stats_t* p_stats) {
 				}
 			}
 		}
-		
+
 		cycle_count++;
 
 		if (cycle_count == CYCLE_END)
@@ -330,9 +330,9 @@ int dispatch_proc(int cycle, int *num_to_schedule) {
 							if (instructions[k].src_reg[l] != -1) {
 
 								// Set the tags and the ready state
-								instructions[k].src_ready[l] = 
+								instructions[k].src_ready[l] =
 									reg_file[instructions[k].src_reg[l]].ready;
-								instructions[k].src_tag[l] = 
+								instructions[k].src_tag[l] =
 									reg_file[instructions[k].src_reg[l]].tag;
 							}
 							else
@@ -464,8 +464,8 @@ int schedule_proc(int cycle) {
 			if (DEBUG2)
 				std::cout << "Gettting Broadcast Instruction " << i+1 << '\n';
 
-			// It has the CDB and we need to go through each instruction and 
-			// update any instructions that use this register. 
+			// It has the CDB and we need to go through each instruction and
+			// update any instructions that use this register.
 			for (int j = 0; j < (int) instructions.size(); j++) {
 				// Check the first source register
 				if (instructions[j].src_tag[0] == instructions[i].instruction_num) {

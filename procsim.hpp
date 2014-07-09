@@ -37,7 +37,7 @@ typedef struct _proc_inst_t
     int32_t src_reg[2];
     int32_t dest_reg;
 
-    // Used to keep track of which cycle each stage was in. 
+    // Used to keep track of which cycle each stage was in.
     int cycle[5];
 
     // Only used for the schedule queue
@@ -54,7 +54,7 @@ typedef struct _proc_inst_t
 
     // Used when we need to tag a register, synonymous to tag
     int instruction_num;
-    
+
 } proc_inst_t;
 
 typedef struct _proc_stats_t
