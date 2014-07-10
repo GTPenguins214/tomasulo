@@ -167,8 +167,14 @@ void run_proc(proc_stats_t* p_stats) {
 			std::cout << '\n';
 
 			for (int i = 0; i < (int) cdb.size(); i++) {
-				if (cdb[i].valid)
+				std::cout << "Got Here\n";
+				if (cdb[i].valid) {
+					std::cout << "Got Here1\n";
+
+					if (cdb[i].instr == NULL)
+						std::cout << "Not Valid\n";
 					std::cout << "Instruction " << cdb[i].instr->instruction_num << " in cdb\n";
+				}
 			}
 
 			std::cout << '\n';
@@ -183,7 +189,7 @@ void run_proc(proc_stats_t* p_stats) {
 			}
 		}
 
-		if (cycle_count % 1000 == 0) {
+		if (cycle_count % CYCLE_PRINT == 0) {
 			std::cout << "Got Cycle " << cycle_count << "\n";
 		}
 
@@ -495,23 +501,18 @@ int schedule_proc(int cycle) {
 		}
 	}
 
-	// Go through and put instructions into CDBs
-	// I am doing this here because of timing issues
-	// This doesn't update the register file
-	int index = 0;
-
 	// Go through the CDBs
 	for (int i = 0; i < (int) cdb.size(); i++) {
 		// If it is invalid, then look for an instruction that we can put into this cdb
-		if (cdb[i].valid) {
+		if (cdb[i].valid == false) {
 			for (int j = 0; j < (int) instructions.size(); j++) {
-				if (instructions[index].cdb == READY) {
-					if (instructions[index].cur_stage == UPDATE) {
+				if (instructions[j].cdb == READY) {
+					if (instructions[j].cur_stage == UPDATE) {
 						// Update the cycle information
-						instructions[index].cycle[4] = cycle+1;
+						instructions[j].cycle[4] = cycle+1;
 
 						// Change the state of the CDB
-						instructions[index].cdb = IN_CDB;
+						instructions[j].cdb = IN_CDB;
 
 						// Update the count
 						info.cdb_count++;

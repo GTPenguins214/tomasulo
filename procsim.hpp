@@ -4,11 +4,12 @@
 #include <cstdint>
 
 #define DEBUG1 0 // Level 1 debugging, previously used debugging options
-#define DEBUG2 1 // Currently used debugging options
+#define DEBUG2 2 // Currently used debugging options
 #define DEBUG3 1 // Level 3 debugging, future debugging options
 
-#define CYCLE_END 50
-#define INSTR_END 50
+#define CYCLE_END 36000
+#define INSTR_END 20000
+#define CYCLE_PRINT 500
 
 #define DEFAULT_K0 1
 #define DEFAULT_K1 2
