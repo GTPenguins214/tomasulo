@@ -7,8 +7,8 @@
 #define DEBUG2 1 // Currently used debugging options
 #define DEBUG3 1 // Level 3 debugging, future debugging options
 
-#define CYCLE_END 5000
-#define INSTR_END 1500
+#define CYCLE_END 50
+#define INSTR_END 50
 
 #define DEFAULT_K0 1
 #define DEFAULT_K1 2
@@ -122,5 +122,11 @@ typedef struct _reg_file_t {
 typedef struct _fu_t {
     int stage[3];
 } fu_t;
+
+// CDB entries
+typedef struct _cdb_t {
+    proc_inst_t *instr;
+    bool valid;
+} cdb_t;
 
 #endif /* PROCSIM_HPP */

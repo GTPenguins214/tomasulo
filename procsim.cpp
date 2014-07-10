@@ -9,7 +9,7 @@ proc_info_t info; // Structure that holds all the infomation
 vector <proc_inst_t> instructions; // Instruction vector, this should stay in order
 vector <vector<fu_t> > function_units; // Two-Dimensional FU data structure
 reg_file_t reg_file[NUM_REGISTERS]; // Register file
-vector <proc_inst_t *> cdb;
+vector <cdb_t> cdb;
 
 /**
  * Subroutine for initializing the processor. You many add and initialize any global or heap
@@ -91,6 +91,14 @@ void setup_proc(uint64_t d, uint64_t k0, uint64_t k1, uint64_t k2, uint64_t f, u
 			}
 		}
 	}
+
+	// Set up the cdb
+	for (int i = 0; i < (int) c; i++) {
+		cdb_t temp;
+		temp.valid = false;
+
+		cdb.push_back(temp);
+	}
 }
 
 /**
@@ -103,7 +111,7 @@ void setup_proc(uint64_t d, uint64_t k0, uint64_t k1, uint64_t k2, uint64_t f, u
 void run_proc(proc_stats_t* p_stats) {
 
 	int cycle_count = 0;
-	bool end;
+	bool end = false;
 
 	// Go through until we hit the end (or an error)
 	while (!end) {
@@ -158,10 +166,9 @@ void run_proc(proc_stats_t* p_stats) {
 
 			std::cout << '\n';
 
-			std::cout << "Got Here\n";
 			for (int i = 0; i < (int) cdb.size(); i++) {
-				std::cout << "Instruction " << cdb[i]->instruction_num << " in cdb\n";
-				std::cout << "Got Here\n";
+				if (cdb[i].valid)
+					std::cout << "Instruction " << cdb[i].instr->instruction_num << " in cdb\n";
 			}
 
 			std::cout << '\n';
@@ -401,18 +408,18 @@ int dispatch_proc(int cycle) {
 		}
 	}
 
-		// Run through each instruction and check if this instruction has the CDB
+	// Run through each instruction and check if this instruction has the CDB
 	for (int i = 0; i < (int) cdb.size(); i++) {
-		if (cdb[i]->cdb == IN_CDB) {
+		if (cdb[i].valid) {
 
 			if (DEBUG2)
-				std::cout << "Gettting Broadcast Instruction " << cdb[i]->instruction_num << '\n';
+				std::cout << "Gettting Broadcast Instruction " << cdb[i].instr->instruction_num << '\n';
 
 			// It has the CDB and we need to go through each instruction and
 			// update any instructions that use this register.
 			for (int j = 0; j < (int) instructions.size(); j++) {
 				// Check the first source register
-				if (instructions[j].src_tag[0] == cdb[i]->instruction_num) {
+				if (instructions[j].src_tag[0] == cdb[i].instr->instruction_num) {
 
 					if (DEBUG2)
 						std::cout << "Setting Instruction " << j+1 << " Source 1 Reg to Ready\n";
@@ -425,7 +432,7 @@ int dispatch_proc(int cycle) {
 				}
 
 				// Check the second source register
-				if (instructions[j].src_tag[1] == cdb[i]->instruction_num) {
+				if (instructions[j].src_tag[1] == cdb[i].instr->instruction_num) {
 
 					if (DEBUG2)
 						std::cout << "Setting Instruction " << j+1 << " Source 1 Reg to Ready\n";
@@ -493,31 +500,37 @@ int schedule_proc(int cycle) {
 	// This doesn't update the register file
 	int index = 0;
 
-	// Go through the instruction queue and look for instructions that are ready for the CDB
-	while ((int) cdb.size() < info.num_cdb) {
+	// Go through the CDBs
+	for (int i = 0; i < (int) cdb.size(); i++) {
+		// If it is invalid, then look for an instruction that we can put into this cdb
+		if (cdb[i].valid) {
+			for (int j = 0; j < (int) instructions.size(); j++) {
+				if (instructions[index].cdb == READY) {
+					if (instructions[index].cur_stage == UPDATE) {
+						// Update the cycle information
+						instructions[index].cycle[4] = cycle+1;
 
-		if (index >= (int) instructions.size()) {
-			break;
-		}
+						// Change the state of the CDB
+						instructions[index].cdb = IN_CDB;
 
-		if (instructions[index].cdb == READY) {
-			if (instructions[index].cur_stage == UPDATE) {
+						// Update the count
+						info.cdb_count++;
 
-				// Update the cycle information
-				instructions[index].cycle[4] = cycle+1;
+						cdb[i].instr = &(instructions[j]);
+						cdb[i].valid = true;
 
-				// Change the state of the CDB
-				instructions[index].cdb = IN_CDB;
+						if (DEBUG2)
+							std::cout << "Broadcasting Instruction " << j+1 << '\n';
 
-				// Put it into the CDB vector
-				cdb.push_back(&instructions[index]);
+						break;
 
-				if (DEBUG2)
-					std::cout << "Broadcasting Instruction " << index+1 << '\n';
+					}
+				}
 			}
-		}
 
-		index++;
+			if (cdb[i].valid == false)
+				break;
+		}
 	}
 
 	if (DEBUG2)
@@ -663,8 +676,6 @@ int execute_proc(int cycle) {
 
 int update_proc(int cycle) {
 
-	vector <int> erase_these;
-
 	for (int i = 0; i < (int) instructions.size(); i++) {
 		if (instructions[i].cur_stage == REMOVE) {
 
@@ -678,40 +689,29 @@ int update_proc(int cycle) {
 
 	// Go through the instruction queue and look for instructions that have the CDB
 	for (int i = 0; i < (int) cdb.size(); i++) {
-		//Update the register file
-		if (reg_file[cdb[i]->dest_reg].tag == cdb[i]->instruction_num) {
-			reg_file[cdb[i]->dest_reg].ready = true;
-			reg_file[cdb[i]->dest_reg].tag = -1;
+
+		if (cdb[i].valid) {
+			//Update the register file
+			if (reg_file[cdb[i].instr->dest_reg].tag == cdb[i].instr->instruction_num) {
+				reg_file[cdb[i].instr->dest_reg].ready = true;
+				reg_file[cdb[i].instr->dest_reg].tag = -1;
+			}
+
+			if (DEBUG2) {
+				std::cout << "Updating Register File from Instruction " << cdb[i].instr->instruction_num << '\n';
+			}
+
+			// Now it doesn't need the CDB anymore
+			instructions[cdb[i].instr->instruction_num-1].cdb = NOT_READY;
+
+			info.cdb_count--;
+
+			// Now the instruction is finished
+			instructions[cdb[i].instr->instruction_num-1].cur_stage = REMOVE;
+
+			// Remove it from the CDB
+			cdb[i].valid = false;
 		}
-
-		if (DEBUG2) {
-			std::cout << "Updating Register File from Instruction " << cdb[i]->instruction_num << '\n';
-		}
-
-		// Now it doesn't need the CDB anymore
-		instructions[cdb[i]->instruction_num-1].cdb = NOT_READY;
-
-		// Now the instruction is finished
-		instructions[cdb[i]->instruction_num-1].cur_stage = REMOVE;
-
-		// Add it to the remove list
-		erase_these.push_back(i);
-	}
-
-	// Now remove them
-	int count = 0;
-
-	for (int i = 0; i < (int) erase_these.size(); i++) {
-		if (DEBUG2) {
-			std::cout << "Removing Instruction " << cdb[i]->instruction_num << " from CDB\n";
-		}
-		std::cout << "Got Here\n";
-		cdb.erase(cdb.begin() + erase_these[i] - count);
-
-		count++;
-
-		std::cout << "Got Here\n";
-
 	}
 
 	if (DEBUG2)

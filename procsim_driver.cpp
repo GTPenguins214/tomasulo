@@ -116,7 +116,7 @@ int main(int argc, char* argv[]) {
     proc_stats_t stats;
     memset(&stats, 0, sizeof(proc_stats_t));
 
-    /* Run the processor */
+    // Run the processor 
     run_proc(&stats);
 
     /* Finalize stats */
