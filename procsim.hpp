@@ -7,8 +7,8 @@
 #define DEBUG2 1 // Currently used debugging options
 #define DEBUG3 1 // Level 3 debugging, future debugging options
 
-#define CYCLE_END 32
-#define INSTR_END 15
+#define CYCLE_END 5000
+#define INSTR_END 1500
 
 #define DEFAULT_K0 1
 #define DEFAULT_K1 2
@@ -106,6 +106,10 @@ typedef struct _proc_info_t {
     int sched_count[3];
     int disp_count;
     int cdb_count;
+
+    // last instructions
+    int last_dispatched;
+    int last_finished;
 } proc_info_t;
 
 // Entries for the register file
