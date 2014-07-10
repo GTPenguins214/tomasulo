@@ -5,13 +5,6 @@
 
 using namespace std;
 
-#define DEBUG1 0 // Level 1 debugging, previously used debugging options
-#define DEBUG2 1 // Currently used debugging options
-#define DEBUG3 1 // Level 3 debugging, future debugging options
-
-#define CYCLE_END 30
-#define INSTR_END 100
-
 proc_info_t info; // Structure that holds all the infomation
 vector <proc_inst_t> instructions; // Instruction vector, this should stay in order
 vector <vector<fu_t> > function_units; // Two-Dimensional FU data structure
@@ -106,7 +99,6 @@ void setup_proc(uint64_t d, uint64_t k0, uint64_t k1, uint64_t k2, uint64_t f, u
  */
 void run_proc(proc_stats_t* p_stats) {
 
-	int num_to_fetch;
 	int cycle_count = 0;
 	bool end;
 
@@ -114,25 +106,7 @@ void run_proc(proc_stats_t* p_stats) {
 	while (!end) {
 
 		if (DEBUG2)
-			std::cout << "---------------- Cycle " << cycle_count << "-------------\n";
-
-		// Figure out how many instructions we should fetch
-		if (info.disp_q_size - info.disp_count > info.fetch_rate)
-			num_to_fetch = info.fetch_rate;
-		else
-			num_to_fetch = info.disp_q_size - info.disp_count;
-
-		if (DEBUG1) {
-			std::cout << "Fetch " << num_to_fetch << " instructions...\n";
-		}
-
-		// Figure out how many instructions we can put in each
-		// schedule queue.
-		int to_schedule[3];
-
-		for (int i = 0; i < 3; i++) {
-			to_schedule[i] = info.sched_size[i] - info.sched_count[i];
-		}
+			std::cout << "\n---------------- Cycle " << cycle_count << "-------------\n";
 
 		// Do state update
 		if (update_proc(cycle_count) == -1)
@@ -147,17 +121,17 @@ void run_proc(proc_stats_t* p_stats) {
 			end = true;
 
 		// Do Dispatch
-		if (dispatch_proc(cycle_count, to_schedule) == -1)
+		if (dispatch_proc(cycle_count) == -1)
 			end = true;
 
 		// Do fetch
-		if (fetch_proc(cycle_count, num_to_fetch) == -1)
+		if (fetch_proc(cycle_count) == -1)
 			end = true;
 
 		if (DEBUG2) {
 			// Print out the structures
 			for (int i = 0; i < (int) instructions.size(); i++) {
-				std::cout << "Instruction " << instructions[i].instruction_num << '\n';
+				std::cout << "\nInstruction " << instructions[i].instruction_num << '\n';
 				std::cout << std::hex << instructions[i].instruction_address << ' ';
 				std::cout << std::dec << instructions[i].op_code << ' '
 						  << instructions[i].dest_reg << ' '
@@ -167,14 +141,15 @@ void run_proc(proc_stats_t* p_stats) {
 						  << instructions[i].cycle[1] << ' '
 						  << instructions[i].cycle[2] << ' '
 						  << instructions[i].cycle[3] << ' '
-						  << instructions[i].cycle[4] << ' '
+						  << instructions[i].cycle[4] << " | "
 						  << instructions[i].cdb << ' '
 						  << instructions[i].cur_stage << " \n";
-				std::cout << instructions[i].sched_q_index << ' '
+				std::cout << instructions[i].src_reg[0] << ' '
 						  << instructions[i].src_tag[0] << ' '
-						  << instructions[i].src_ready[0] << ' '
+						  << instructions[i].src_ready[0] << " | "
+						  << instructions[i].src_reg[1] << ' '
 						  << instructions[i].src_tag[1] << ' '
-						  << instructions[i].src_ready[1] << ' '
+						  << instructions[i].src_ready[1] << " | "
 						  << instructions[i].fireable << " \n";
 			}
 
@@ -230,14 +205,26 @@ void complete_proc(proc_stats_t *p_stats) {
 }
 
 
-int fetch_proc(int cycle, int num_to_fetch) {
-	if (DEBUG2) {
-		std::cout << "Fetching/Dispatching " << num_to_fetch << " instructions.\n";
-	}
+int fetch_proc(int cycle) {
+
+	int num_to_fetch;
+
+	// Figure out how many instructions we should fetch
+	if (info.disp_q_size - info.disp_count > info.fetch_rate)
+		num_to_fetch = info.fetch_rate;
+	else
+		num_to_fetch = info.disp_q_size - info.disp_count;
 
 	if (DEBUG3) {
-		if (instructions.size() >= INSTR_END)
+		if (instructions.size() >= INSTR_END) {
+			if (DEBUG2)
+				std::cout << "Nothing to Fetch\n";
 			return 1;
+		}
+	}
+
+	if (DEBUG2) {
+		std::cout << "Fetching/Dispatching " << num_to_fetch << " instructions.\n";
 	}
 
 	proc_inst_t temp_instr;
@@ -251,6 +238,8 @@ int fetch_proc(int cycle, int num_to_fetch) {
 			temp_instr.cycle[2] = -1;
 			temp_instr.cycle[3] = -1;
 			temp_instr.cycle[4] = -1;
+
+			temp_instr.del_dispatch = false;
 
 			temp_instr.src_ready[0] = false;
 			temp_instr.src_tag[0] = -1;
@@ -300,12 +289,24 @@ int fetch_proc(int cycle, int num_to_fetch) {
 
 }
 
-int dispatch_proc(int cycle, int *num_to_schedule) {
+int dispatch_proc(int cycle) {
+
+	for (int i = 0; i < (int) instructions.size(); i++) {
+		if (instructions[i].del_dispatch) {
+
+			if (DEBUG2)
+				std::cout << "Deleting Instruction " << i+1 << " from dispatch queue\n";
+
+			info.disp_count--;
+			instructions[i].del_dispatch = false;
+		}
+	}
 
 	// Check each schedule queue and find empty slots
 	for (int i = 0; i < 3; i++) {
+
 		// How many should we schedule
-		int to_schedule = num_to_schedule[i];
+		int to_schedule = info.sched_size[i] - info.sched_count[i];
 
 		if (DEBUG2) {
 			std::cout << "Trying to Schedule " << to_schedule << " instructions for Queue " << i << '\n';
@@ -342,9 +343,13 @@ int dispatch_proc(int cycle, int *num_to_schedule) {
 						// Change the tag in the register file
 						// If the destination reg == -1 then do nothing
 						if (instructions[k].dest_reg != -1) {
-							// Change the Tag
-							reg_file[instructions[k].dest_reg].tag = instructions[k].instruction_num;
-							reg_file[instructions[k].dest_reg].ready = false;
+							// Change the Tag, only if the tag is larger than the previous tag
+							// This is so that we don't overwrite a register tag with a tag that is
+							// smaller, an earlier instruction.
+							if (instructions[k].instruction_num >= reg_file[instructions[k].dest_reg].tag) {
+								reg_file[instructions[k].dest_reg].tag = instructions[k].instruction_num;
+								reg_file[instructions[k].dest_reg].ready = false;
+							}
 
 							if (DEBUG2) {
 								for (int i = 0; i < 7; i++) {
@@ -354,6 +359,13 @@ int dispatch_proc(int cycle, int *num_to_schedule) {
 								}
 							}
 						}
+						else {
+							if (DEBUG2)
+								std::cout << "No change to register file\n";
+						}
+
+						if (instructions[k].src_ready[0] && instructions[k].src_ready[1])
+							instructions[k].fireable = true;
 
 						if (DEBUG2) {
 							// Print the schedule q entry
@@ -364,20 +376,18 @@ int dispatch_proc(int cycle, int *num_to_schedule) {
 									  << "Src0_Tag: " << instructions[k].src_tag[0] << '\n';
 							std::cout << "Src1: " << instructions[k].src_reg[1] << ' '
 									  << "Src1_ReadY: " << instructions[k].src_ready[1] << ' '
-									  << "Src1_Tag: " << instructions[k].src_tag[1] << "\n\n";
+									  << "Src1_Tag: " << instructions[k].src_tag[1] << "\n";
+							std::cout << "Fireable: " << instructions[k].fireable << "\n\n";
 						}
-
-						if (instructions[k].src_ready[0] && instructions[k].src_ready[1])
-							instructions[k].fireable = true;
 
 						// Remove the instruction from the dispatch q
 						instructions[k].cur_stage = SCHEDULE;
 
+						// Delete on the next cycle
+						instructions[k].del_dispatch = true;
+
 						// Increment the schedule q count
 						info.sched_count[i]++;
-
-						// Decrement the dispatch q count
-						info.disp_count--;
 
 						// Set the cycle for the dispatch stage
 						instructions[k].cycle[2] = cycle+1;
@@ -523,9 +533,6 @@ int execute_proc(int cycle) {
 					if (DEBUG2)
 						std::cout << "Finished executing Instruction " << instr_num+1 << '\n';
 
-					// Remove them from the schedule q
-					info.sched_count[i]--;
-
 					// Set as cdb_ready
 					instructions[instr_num].cdb = READY;
 
@@ -549,9 +556,6 @@ int execute_proc(int cycle) {
 
 					if (DEBUG2)
 						std::cout << "Finished executing Instruction " << instr_num+1 << '\n';
-
-					// Remove them from the schedule q
-					info.sched_count[i]--;
 
 					// Set as cdb_ready
 					instructions[instr_num].cdb = READY;
@@ -597,9 +601,6 @@ int execute_proc(int cycle) {
 
 					if (DEBUG2)
 						std::cout << "Finished executing Instruction " << instr_num+1 << '\n';
-
-					// Remove them from the schedule q
-					info.sched_count[i]--;
 
 					// Set as cdb_ready
 					instructions[instr_num].cdb = READY;
@@ -664,6 +665,16 @@ int update_proc(int cycle) {
 
 	// Go through the instruction queue and look for instructions that have the CDB
 	for (int i = 0; i < (int) instructions.size(); i++) {
+
+		if (instructions[i].cur_stage == REMOVE) {
+
+			if (DEBUG2)
+				std::cout << "Removing Instruction " << i+1 << " from schedule queue\n";
+
+			info.sched_count[instructions[i].sched_q_index]--;
+			instructions[i].cur_stage = FINISHED;
+		}
+
 		// If it has the CDB
 		if (instructions[i].cdb == IN_CDB) {
 			//Update the register file
@@ -671,15 +682,15 @@ int update_proc(int cycle) {
 				reg_file[instructions[i].dest_reg].ready = true;
 
 			if (DEBUG2) {
-				std::cout << "Updateing Register File from Instruction " << i+1 << '\n';
-				std::cout << "Finished Instruction " << i+1 << '\n';
+				std::cout << "Updating Register File from Instruction " << i+1 << '\n';
+				std::cout << "Removing Instruction " << i+1 << " from CDB\n";
 			}
 
 			// Now it doesn't need the CDB anymore
 			instructions[i].cdb = NOT_READY;
 
 			// Now the instruction is finished
-			instructions[i].cur_stage = FINISHED;
+			instructions[i].cur_stage = REMOVE;
 
 			// Decrement the CDB counter
 			info.cdb_count--;
