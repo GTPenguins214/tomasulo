@@ -5,10 +5,11 @@
 
 #define DEBUG1 0 // Level 1 debugging, previously used debugging options
 #define DEBUG2 0 // Currently used debugging options
-#define DEBUG3 1 // Level 3 debugging, future debugging options
+#define DEBUG3 1 // Level 3 debugging, for specifying an instruction count
+#define DEBUG4 0 // Level 4 debugging, for specifying a cycle count
 
-#define CYCLE_END 2000
-#define INSTR_END 1000
+#define CYCLE_END 0
+#define INSTR_END 200
 #define CYCLE_PRINT 500
 
 #define DEFAULT_K0 1
@@ -106,10 +107,8 @@ typedef struct _proc_info_t {
     // queue counts
     int sched_count[3];
     int disp_count;
-    int cdb_count;
 
     // last instructions
-    int last_dispatched;
     int last_finished;
 } proc_info_t;
 

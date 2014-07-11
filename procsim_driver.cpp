@@ -43,6 +43,10 @@ bool read_instruction(proc_inst_t* p_inst)
     if (ret != 5) {
         return false;
     }
+
+    if (ret == EOF) {
+        return false;
+    }
     
     return true;
 }

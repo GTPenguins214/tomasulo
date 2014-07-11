@@ -45,9 +45,8 @@ void setup_proc(uint64_t d, uint64_t k0, uint64_t k1, uint64_t k2, uint64_t f, u
 	info.sched_count[1] = 0;
 	info.sched_count[2] = 0;
 	info.disp_count = 0;
-	info.cdb_count = 0;
 
-	info.last_dispatched = 0;
+	info.last_finished = -1;
 
 	if (DEBUG1) {
 		std::cout << "Num K0: " << info.fu[0] << '\n';
@@ -109,6 +108,10 @@ void run_proc(proc_stats_t* p_stats) {
 
 	int cycle_count = 0;
 	bool end = false;
+	bool no_more_instr = false;
+
+	// // Print the headings
+	// printf("INST\tFETCH\tDISP\tSCHED\tEXEC\tSTATE\n");
 
 	// Go through until we hit the end (or an error)
 	while (!end) {
@@ -133,8 +136,46 @@ void run_proc(proc_stats_t* p_stats) {
 			end = true;
 
 		// Do fetch
-		if (fetch_proc(cycle_count) == -1)
+		int ret_val = fetch_proc(cycle_count);
+		if (ret_val == 2)
+			no_more_instr = true;
+		else if (ret_val == -1)
 			end = true;
+
+		// Loop through all the instructions and figure which instruction is the
+		// last finished instruction where all the previous instructions are also
+		// finished. 
+		for (int i = 0; i < (int) instructions.size(); i++) {
+			if (DEBUG2) {
+				std::cout << "i is " << i << "\n";
+				std::cout << "Checking Instruction " << instructions[i].instruction_num << "\n";
+				std::cout << "Stage: " << instructions[i].cur_stage << "\n";
+			}
+
+			if (instructions[i].cur_stage == FINISHED) {
+				// std::cout << instructions[i].instruction_num << '\t'
+				//   << instructions[i].cycle[0] << '\t'
+				//   << instructions[i].cycle[1] << '\t'
+				//   << instructions[i].cycle[2] << '\t'
+				//   << instructions[i].cycle[3] << '\t'
+				//   << instructions[i].cycle[4] << '\n';
+
+				if (DEBUG2) {
+					std::cout << "Setting last finished index to " << i << "\n";
+					std::cout << "Last finished instruction " << instructions[i].instruction_num << "\n";
+				}
+
+				info.last_finished = instructions[i].instruction_num;
+			}
+			else {
+				if (DEBUG2) {
+					std::cout << "Setting last finished index to " << i-1 << "\n";
+					std::cout<< "Last finished instruction " << i << "\n";
+				}
+
+				break;
+			}
+		}
 
 		if (DEBUG2) {
 			// Print out the structures
@@ -186,9 +227,16 @@ void run_proc(proc_stats_t* p_stats) {
 		}
 
 		cycle_count++;
+		if (DEBUG4) {
+			if (cycle_count == CYCLE_END)
+				end = true;
+		}
 
-		if (cycle_count == CYCLE_END)
-			end = true;
+		// Check if we are done with the program
+		if (no_more_instr && info.last_finished == instructions[instructions.size()-1].instruction_num) {
+			std::cout << "Done with program\n";
+			break;
+		}
 
 	}
 
@@ -228,9 +276,9 @@ int fetch_proc(int cycle) {
 
 	if (DEBUG3) {
 		if (instructions.size() >= INSTR_END) {
-			if (DEBUG2)
-				std::cout << "Nothing to Fetch\n";
-			return 1;
+			if (DEBUG3)
+				std::cout << "Nothing to Fetch\n\n";
+			return 2;
 		}
 	}
 
@@ -289,7 +337,7 @@ int fetch_proc(int cycle) {
 			// Unsuccessfully read an instruction, just return, not an error
 			// Most likely EOF
 			std::cout << "Invalid Fetch\n";
-			return 1;
+			return 2;
 		}
 	}
 
@@ -334,8 +382,6 @@ int dispatch_proc(int cycle) {
 			else {
 				if (DEBUG2)
 					std::cout << "Scheduled Instruction " << i+1 << '\n';
-
-				info.last_dispatched = i;
 
 				// Get the source tags and whether they are ready
 				for (int l = 0; l < 2; l++) {
@@ -406,7 +452,7 @@ int dispatch_proc(int cycle) {
 		}
 	}
 
-	// Run through each instruction and check if this instruction has the CDB
+	// Go through the CDB structure and update any schedule q's needed
 	for (int i = 0; i < (int) cdb_instr.size(); i++) {
 		if (cdb_instr[i] != -1) {
 
