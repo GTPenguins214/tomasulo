@@ -3,6 +3,15 @@
 
 #include <cstdint>
 
+#define DEBUG1 0 // Level 1 debugging, previously used debugging options
+#define DEBUG2 0 // Currently used debugging options
+#define DEBUG3 1 // Level 3 debugging, for specifying an instruction count
+#define DEBUG4 0 // Level 4 debugging, for specifying a cycle count
+
+#define CYCLE_END 0
+#define INSTR_END 200
+#define CYCLE_PRINT 500
+
 #define DEFAULT_K0 1
 #define DEFAULT_K1 2
 #define DEFAULT_K2 3
@@ -21,7 +30,8 @@ typedef enum _stage_t {
     EXEC2 = 4,
     EXEC3 = 5,
     UPDATE = 6,
-    FINISHED = 7
+    REMOVE = 7,
+    FINISHED = 8
 } stage_t;
 
 typedef enum _cdb_state_t {
@@ -45,6 +55,9 @@ typedef struct _proc_inst_t
     bool src_ready[2];
     int src_tag[2];
     bool fireable; // The instruction is ready to fire
+
+    // Used to figure out when to delete from the dispatch queue
+    bool del_dispatch;
 
     // Used for bus arbitration
     cdb_state_t cdb;
@@ -72,8 +85,8 @@ void setup_proc(uint64_t d, uint64_t k0, uint64_t k1, uint64_t k2, uint64_t f, u
 void run_proc(proc_stats_t* p_stats);
 void complete_proc(proc_stats_t* p_stats);
 
-int fetch_proc(int cycle, int num_to_fetch);
-int dispatch_proc(int cycle, int *num_to_schedule);
+int fetch_proc(int cycle);
+int dispatch_proc(int cycle);
 int schedule_proc(int cycle);
 int execute_proc(int cycle);
 int update_proc(int cycle);
@@ -94,7 +107,9 @@ typedef struct _proc_info_t {
     // queue counts
     int sched_count[3];
     int disp_count;
-    int cdb_count;
+
+    // last instructions
+    int last_finished;
 } proc_info_t;
 
 // Entries for the register file
@@ -107,5 +122,11 @@ typedef struct _reg_file_t {
 typedef struct _fu_t {
     int stage[3];
 } fu_t;
+
+// CDB entries
+typedef struct _cdb_t {
+    proc_inst_t *instr;
+    bool valid;
+} cdb_t;
 
 #endif /* PROCSIM_HPP */

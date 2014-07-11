@@ -43,6 +43,10 @@ bool read_instruction(proc_inst_t* p_inst)
     if (ret != 5) {
         return false;
     }
+
+    if (ret == EOF) {
+        return false;
+    }
     
     return true;
 }
@@ -116,7 +120,7 @@ int main(int argc, char* argv[]) {
     proc_stats_t stats;
     memset(&stats, 0, sizeof(proc_stats_t));
 
-    /* Run the processor */
+    // Run the processor 
     run_proc(&stats);
 
     /* Finalize stats */
