@@ -1,0 +1,71 @@
+Processor Settings
+D: 1
+k0: 1
+k1: 1
+k2: 1
+F: 4
+M: 2
+C: 4
+
+Processor stats:
+Avg inst fired per cycle: 0.565187
+Total instructions: 94414
+Total run time (cycles): 167049
+Processor Settings
+D: 4
+k0: 3
+k1: 3
+k2: 3
+F: 4
+M: 8
+C: 8
+
+Processor stats:
+Avg inst fired per cycle: 3.248933
+Total instructions: 94414
+Total run time (cycles): 29060
+
+===========================
+
+Processor Settings
+D: 1
+k0: 2
+k1: 1
+k2: 3
+F: 4
+M: 4
+C: 4
+
+Processor stats:
+Avg inst fired per cycle: 3.248933
+Total instructions: 94414
+Total run time (cycles): 29060
+Processor Settings
+D: 1
+k0: 2
+k1: 1
+k2: 2
+F: 4
+M: 4
+C: 4
+
+Processor stats:
+Avg inst fired per cycle: 2.675679
+Total instructions: 94414
+Total run time (cycles): 35286
+
+===========================
+
+Processor Settings
+D: 1
+k0: 2
+k1: 1
+k2: 3
+F: 4
+M: 2
+C: 4
+
+Processor stats:
+Avg inst fired per cycle: 1.856898
+Total instructions: 94414
+Total run time (cycles): 50845

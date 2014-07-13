@@ -5,8 +5,10 @@
 
 #define DEBUG1 0 // Level 1 debugging, previously used debugging options
 #define DEBUG2 0 // Currently used debugging options
-#define DEBUG3 1 // Level 3 debugging, for specifying an instruction count
-#define DEBUG4 0 // Level 4 debugging, for specifying a cycle count
+#define DEBUG3 0 // Level 3 debugging, for specifying an instruction count to end on
+#define DEBUG4 0 // Level 4 debugging, for specifying a cycle count to end on
+#define DEBUG5 0 // Level 5 debugging, for printing out when we hit every CYCLE_PRINT multiple cycle
+#define DEBUG6 1 // Level 6 debugging, for the experiments, will turn off the instruction/cycle info.
 
 #define CYCLE_END 0
 #define INSTR_END 200

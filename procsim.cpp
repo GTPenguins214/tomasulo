@@ -46,7 +46,7 @@ void setup_proc(uint64_t d, uint64_t k0, uint64_t k1, uint64_t k2, uint64_t f, u
 	info.sched_count[2] = 0;
 	info.disp_count = 0;
 
-	info.last_finished = -1;
+	info.last_finished = 0;
 
 	if (DEBUG1) {
 		std::cout << "Num K0: " << info.fu[0] << '\n';
@@ -144,8 +144,8 @@ void run_proc(proc_stats_t* p_stats) {
 
 		// Loop through all the instructions and figure which instruction is the
 		// last finished instruction where all the previous instructions are also
-		// finished. 
-		for (int i = 0; i < (int) instructions.size(); i++) {
+		// finished.
+		for (int i = info.last_finished; i < (int) instructions.size(); i++) {
 			if (DEBUG2) {
 				std::cout << "i is " << i << "\n";
 				std::cout << "Checking Instruction " << instructions[i].instruction_num << "\n";
@@ -179,7 +179,7 @@ void run_proc(proc_stats_t* p_stats) {
 
 		if (DEBUG2) {
 			// Print out the structures
-			for (int i = 0; i < (int) instructions.size(); i++) {
+			for (int i = info.last_finished; i < (int) instructions.size(); i++) {
 				std::cout << "\nInstruction " << instructions[i].instruction_num << '\n';
 				std::cout << std::hex << instructions[i].instruction_address << ' ';
 				std::cout << std::dec << instructions[i].op_code << ' '
@@ -222,7 +222,7 @@ void run_proc(proc_stats_t* p_stats) {
 			}
 		}
 
-		if (cycle_count % CYCLE_PRINT == 0) {
+		if (cycle_count % CYCLE_PRINT == 0 && DEBUG5) {
 			std::cout << "Got Cycle " << cycle_count << "\n";
 		}
 
@@ -234,11 +234,16 @@ void run_proc(proc_stats_t* p_stats) {
 
 		// Check if we are done with the program
 		if (no_more_instr && info.last_finished == instructions[instructions.size()-1].instruction_num) {
-			std::cout << "Done with program\n";
+			if (DEBUG2)
+				std::cout << "Done with program\n";
 			break;
 		}
 
 	}
+
+	// The total number of cycles. It will be one extra because when we look for finished cycles
+	p_stats->cycle_count = cycle_count-1;
+	p_stats->retired_instruction = info.last_finished;
 
 }
 
@@ -250,17 +255,26 @@ void run_proc(proc_stats_t* p_stats) {
  * @p_stats Pointer to the statistics structure
  */
 void complete_proc(proc_stats_t *p_stats) {
-	// Print the headings
-	printf("INST\tFETCH\tDISP\tSCHED\tEXEC\tSTATE\n");
 
-	for (int i = 0; i < (int) instructions.size(); i++) {
-		std::cout << instructions[i].instruction_num << '\t'
-				  << instructions[i].cycle[0] << '\t'
-				  << instructions[i].cycle[1] << '\t'
-				  << instructions[i].cycle[2] << '\t'
-				  << instructions[i].cycle[3] << '\t'
-				  << instructions[i].cycle[4] << '\n';
+	if (DEBUG6) {
+		// Print the headings
+		std::cout << "INST\tFETCH\tDISP\tSCHED\tEXEC\tSTATE\n";
+
+		for (int i = 0; i < (int) instructions.size(); i++) {
+			std::cout << instructions[i].instruction_num << '\t'
+					  << instructions[i].cycle[0] << '\t'
+					  << instructions[i].cycle[1] << '\t'
+					  << instructions[i].cycle[2] << '\t'
+					  << instructions[i].cycle[3] << '\t'
+					  << instructions[i].cycle[4] << '\n';
+		}
+
+		std::cout << "\n";
 	}
+
+	// Do the analysis
+	p_stats->avg_inst_fire = (float) p_stats->retired_instruction / (float) p_stats->cycle_count;
+
 }
 
 
@@ -276,7 +290,7 @@ int fetch_proc(int cycle) {
 
 	if (DEBUG3) {
 		if (instructions.size() >= INSTR_END) {
-			if (DEBUG3)
+			if (DEBUG2)
 				std::cout << "Nothing to Fetch\n\n";
 			return 2;
 		}
@@ -336,7 +350,8 @@ int fetch_proc(int cycle) {
 		else {
 			// Unsuccessfully read an instruction, just return, not an error
 			// Most likely EOF
-			std::cout << "Invalid Fetch\n";
+			if (DEBUG2)
+				std::cout << "Invalid Fetch: Most likely EOF\n";
 			return 2;
 		}
 	}
@@ -350,7 +365,7 @@ int fetch_proc(int cycle) {
 
 int dispatch_proc(int cycle) {
 
-	for (int i = 0; i < (int) instructions.size(); i++) {
+	for (int i = info.last_finished; i < (int) instructions.size(); i++) {
 		if (instructions[i].del_dispatch) {
 
 			if (DEBUG2)
@@ -362,7 +377,7 @@ int dispatch_proc(int cycle) {
 	}
 
 	// Go through the instructions
-	for (int i = 0; i < (int) instructions.size(); i++) {
+	for (int i = info.last_finished; i < (int) instructions.size(); i++) {
 		// If the instruction is in dispatch then look at it.
 		if (instructions[i].cur_stage == DISPATCH) {
 
@@ -461,7 +476,7 @@ int dispatch_proc(int cycle) {
 
 			// It has the CDB and we need to go through each instruction and
 			// update any instructions that use this register.
-			for (int j = 0; j < (int) instructions.size(); j++) {
+			for (int j = info.last_finished; j < (int) instructions.size(); j++) {
 				// Check the first source register
 				if (instructions[j].src_tag[0] == cdb_instr[i]+1) {
 
@@ -511,7 +526,7 @@ int schedule_proc(int cycle) {
 			// If nothing is executing, == -1
 			if (function_units[i][j].stage[0] == -1) {
 				// Go through the instructions
-				for (int k = 0; k < (int) instructions.size(); k++) {
+				for (int k = info.last_finished; k < (int) instructions.size(); k++) {
 					// If it is in the schedule stage
 					if (instructions[k].cur_stage == SCHEDULE) {
 						// If it is for this schedule queue
@@ -543,7 +558,7 @@ int schedule_proc(int cycle) {
 	for (int i = 0; i < (int) cdb_instr.size(); i++) {
 		// If it is invalid, then look for an instruction that we can put into this cdb
 		if (cdb_instr[i] == -1) {
-			for (int j = 0; j < (int) instructions.size(); j++) {
+			for (int j = info.last_finished; j < (int) instructions.size(); j++) {
 				if (instructions[j].cdb == READY) {
 					if (instructions[j].cur_stage == UPDATE) {
 						// Update the cycle information
@@ -713,7 +728,7 @@ int execute_proc(int cycle) {
 
 int update_proc(int cycle) {
 
-	for (int i = 0; i < (int) instructions.size(); i++) {
+	for (int i = info.last_finished; i < (int) instructions.size(); i++) {
 		if (instructions[i].cur_stage == REMOVE) {
 
 			if (DEBUG2)
