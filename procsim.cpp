@@ -256,19 +256,21 @@ void run_proc(proc_stats_t* p_stats) {
  */
 void complete_proc(proc_stats_t *p_stats) {
 
-	// Print the headings
-	std::cout << "INST\tFETCH\tDISP\tSCHED\tEXEC\tSTATE\n";
+	if (DEBUG6) {
+		// Print the headings
+		std::cout << "INST\tFETCH\tDISP\tSCHED\tEXEC\tSTATE\n";
 
-	for (int i = 0; i < (int) instructions.size(); i++) {
-		std::cout << instructions[i].instruction_num << '\t'
-				  << instructions[i].cycle[0] << '\t'
-				  << instructions[i].cycle[1] << '\t'
-				  << instructions[i].cycle[2] << '\t'
-				  << instructions[i].cycle[3] << '\t'
-				  << instructions[i].cycle[4] << '\n';
+		for (int i = 0; i < (int) instructions.size(); i++) {
+			std::cout << instructions[i].instruction_num << '\t'
+					  << instructions[i].cycle[0] << '\t'
+					  << instructions[i].cycle[1] << '\t'
+					  << instructions[i].cycle[2] << '\t'
+					  << instructions[i].cycle[3] << '\t'
+					  << instructions[i].cycle[4] << '\n';
+		}
+
+		std::cout << "\n";
 	}
-
-	std::cout << "\n";
 
 	// Do the analysis
 	p_stats->avg_inst_fire = (float) p_stats->retired_instruction / (float) p_stats->cycle_count;
